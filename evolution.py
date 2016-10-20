@@ -1,6 +1,3 @@
-# chemical synapses: below 0.5 inhibitory. (0.5-value)*2 == strength
-# above 0.5 exitatory. (valute-0.5)*2 == strength
-# line recombination
 import numpy as np
 import timeit
 import threading
@@ -11,50 +8,44 @@ from os import remove as os_remove
 from multiprocessing import Pipe, Pool,Process,Queue,TimeoutError
 from phototaxis import *
 
-# all the kids have terrible fitness
-# even some with reasonable fitness seem to have no spike in fact
-# everything is close to 0.08 already in the begining
-# population not diverse enough. mutate more maybe
 # set_noiseTerm('')
 mutation_rate = 0.00001
 popsize = 300
 elite_size = 20
 n_generations = 200 
-length_vector = 33
 p = 0.02
+
+# set this to 1 for a machine with only one or two cores:
 numberThreads = 14
+
+# should not be changed:
+length_vector = 33
 
 if (popsize-elite_size)%2 != 0:
 	raise ValueError('popsize-elite_size not even')
 
-# initialisation
-best = {'fitness': -float('inf'), 'content': None} # (fitness, individual)
-
-# np.save('popAfterCreation', population)
-
-	# def assesFitness(param):
-	# x    = (0.5-np.random.rand(55))*20
-	# yt 	 = 0.3*(x**4)+0.4*(x**3)+0.8*(x**2)+0.2*(x)+0.5
-	# yHat = param[4]*(x**4)+param[3]*(x**3)+param[2]*(x**2)+param[1]*(x)+param[0]
-	# mse  = np.sum((yHat-yt)**2)/length_vector
-	# return -mse
-
+# each thread uses a different instance of the network. different object
 evaluators = [Phototaxis_evaluator(i) for i in range(numberThreads)] 
 
-def multiProcessPopulationFitness(pop, minOfNumber=4):
+def multiProcessPopulationFitness(pop, NumberOfAssesment=4):
+	'''Asses fitness for all individuals in the network, NumberOfAssesment times'''
 	if(popsize != len(pop)):
 		raise ValueError('lenghth of population doesnt fit popsize')
+
+	
 	lowerBound = 0 
 	processes = []
 	receivers = []
+	#split the population into numberThreads parts and give each part to a different job
 	for i,evaluator in enumerate(evaluators):
-	#for i,supPopulation in enumerate(np.array_split(pop)):
 		# the first blocks will be one smaller (implicitly rounding down with //) until we can equally fit the rest
 		# stepsize = N individuals left / N jobs left
 		upperBound = lowerBound+((popsize-lowerBound)//(numberThreads-i))
 		print('[{}:{}]'.format(lowerBound,upperBound))
+		
+		# to get the data back from the process we use a unidirectional pipe
 		receiver, sender = Pipe(duplex=False)
-		newprocess = Process(target=evaluator.assesPopulationFitness, args=(pop[lowerBound:upperBound],sender,minOfNumber))
+		newprocess = Process(target=evaluator.assesPopulationFitness, args=(pop[lowerBound:upperBound],sender,NumberOfAssesment))
 		# newprocess = Process(target=evaluators[i].assesPopulationFitness, args=(subPopulation,sender))
 		newprocess.start()
 		receivers.append(receiver)
@@ -62,8 +53,10 @@ def multiProcessPopulationFitness(pop, minOfNumber=4):
 		lowerBound = upperBound
 
 	evaluatedPop = []
+	# collect the data
 	for rec in receivers:
 		evaluatedPop.extend(rec.recv())
+	# terminate the processes
 	for job in processes:
 		job.join()
 
@@ -72,28 +65,24 @@ def multiProcessPopulationFitness(pop, minOfNumber=4):
 
 
 def sortPopulation(populationToSort):
-	global best
 	# sort the list of dictonarys by the fitness
 	populationSorted = sorted(populationToSort, key=lambda individual:individual['fitness'], reverse=True)
-	# if the first one is fitter then the current best put it there 
-	# probably not necessary since the best view survive all the time anyways
-	if (populationSorted[0]['fitness'] > best['fitness']):
-			best = populationSorted[0]
 	return populationSorted
 
-def assesBestVisual(name):
-	pop = np.load(name)
-	evaluators[0].assesNetworkVisual(pop[0])
-
 def evalPopNtimes(name, N):
+	'''asses population N times to give a better picture
+	Args:
+		name: name of the .npy file in which the poulation is stored
+	'''
+		
 	pop = np.load(name)
 	pop = multiProcessPopulationFitness(pop, N)
 	pop = sortPopulation(pop)
 	np.save('properEvalPop', pop)
-	evaluators[0].assesNetworkVisual(pop[0])
 	
 
 def selectParent(pop):
+	'''selects a parent from the population randomly, biased on the fitness'''
 	canidateA = randomPack.choice(pop)
 	canidateB = randomPack.choice(pop)
 	if( (canidateA['fitness'] > canidateB['fitness'])):
@@ -102,6 +91,7 @@ def selectParent(pop):
 		return canidateB['content']
 
 def crossover(ParentA, ParentB):
+	# Intermediate Recombination (similar to Line Recombination)
 	ChildA = np.zeros(length_vector)
 	ChildB = np.zeros(length_vector)
 	for i in range(length_vector):
@@ -118,22 +108,21 @@ def crossover(ParentA, ParentB):
 	return (ChildA, ChildB)
 
 def mutate(child):
+	# just add indebendent gaussian noise elementwise
+	# mutation_rate is a global parameter specified above
 	return np.clip(child + np.random.normal(loc=0.0, scale=mutation_rate, size=length_vector),0,1)
 
 
 
 def do_evolution(population, startGen):
-	#assesPopulationFitness(population)
-	#np.save('initialPop', population)
-	#population = sortPopulation(population)
-	#np.save('initialPopSorted', population)
 	global elite_size, popsize, n_generations
 	if(len(population) != popsize):
 		raise ValueError('popsize not equal length of population')
 
 	for t in range(startGen, n_generations):	
-		next_population = population[0:elite_size] # keep the best
+		next_population = population[0:elite_size] # keep the best individuals straight away
 		for i in range(int((popsize-elite_size)/2)):
+			# select parents 
 			ParentA = selectParent(population)
 			ParentB = selectParent(population)
 			ChildA, ChildB = crossover(ParentA, ParentB)
