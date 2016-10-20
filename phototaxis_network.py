@@ -6,14 +6,15 @@ prefs.codegen.target = 'cython'#'cython'
 # plt.close('all')
 
 neuron_names = {'sen':['ash', 'asj', 'ask', 'awb'], 'other':['ava', 'avb', 'avd', 'pvc', 'da', 'va']}
+# general parameters for Izhikevich neurons
 a=0.02/ms
 b=0.2/ms
 c=-65*mV
 d=6*mV/ms
-tauChemSyn = 7*ms  # randomly choosen possibly/probaly not trained
 noiseTerm = '+ 0.3*xi*mV*(ms**(-0.5))'
 
 def set_noiseTerm(string):
+	# if we want it deterministic we call set_noiseTerm('') on this module BEFORE building any network
 	global noiseTerm
 	noiseTerm = string
 
@@ -46,7 +47,7 @@ other_chemical=[\
 ]
 
 
-
+# connection [from, two, numberConnections], for electrical synapses
 other_gap_table=np.array([\
 [0,3,10],
 [0,4,27],
@@ -61,6 +62,9 @@ sens_other_connections_table=np.array([\
 [0,2,6],
 [3,1,3]
 	])
+
+# a few helperfunctions: (two connect neurons in brain we need lists of origin indices i=... and target indices j=...
+# these functions get us these two lists
 
 #since the gap junctions are symetric these functions are used to repeat the paramterlist with the same values
 get_gap_source = lambda table: append(table[:,0],table[:,1])
@@ -104,24 +108,17 @@ def buildNetwork():
 
 	model_gap_junction = '''w : 1/second
 	Igap_post = w*(v_pre-v_post): volt/second (summed)'''
-
-
-
-
-
-	# model_chem_syn= '''w : volt/second
-	# g=exp(-(t-lastupdate)/tauChemSyn) : 1
-	# Isyn_post = w*g : volt/second (summed)
-	# '''
-
+	
+	# chemical synapes
 	model_chem_syn= '''w : 1/second
 	vReversal :volt
 	diff=(vReversal-v_post) :volt
 	dg/dt = -(1/tauChemSyn)*g  : 1 (clock-driven)
 	Isyn_post = w*g*diff : volt/second (summed)
 	'''
-	# same as above g+=1 (all spikes in the past still relevant), g=1 (only last spike relevant)
 
+	# chemical synapes connecting sensory to other neurons. a group of synapses over which we sum up. can always only be within one neuron group. 
+	# so this connection is modelled as an extra synaptic current. this is a limitation in the brian2 simulator
 	model_chem_syn_connection= '''w : 1/second
 	vReversal : volt
 	diff=(vReversal-v_post) : volt
@@ -170,18 +167,18 @@ def buildNetwork():
 
 
 	#> sensory neurons to other neurons connection
-
+	# synapese between 2 neuron groubs have to be made seperatly
 	chemical_connections=Synapses(sensory_neurons, other_neurons, model=model_chem_syn_connection, on_pre='g = 1', name='inter_connections', method='linear')
 	chemical_connections.connect(i=sens_other_connections_table[:,0],j=sens_other_connections_table[:,1])
 	
 
 
 	### INITIAL VALUES
-	sensory_neurons.v = other_neurons.v = -70*mV#c
-	sensory_neurons.u = other_neurons.u = b*(-70*mV)#b*c
+	sensory_neurons.v = other_neurons.v = -70*mV
+	sensory_neurons.u = other_neurons.u = b*(-70*mV)
 
 
-
+	# add all of this into a network object
 	network = Network([sensory_neurons, sensory_gap_junctions, sensory_synapses, other_neurons, other_synapses, other_gap_junctions, chemical_connections])
 	return network
 
@@ -201,23 +198,18 @@ def set_parameter(network, original_parameter):
 		raise ValueError('not the right number of parameter')
 	parameter = [param for param in original_parameter if 0<=param<=1]
 	#gives us a copy of the array and lets us check if any parameter is not in the range
+
 	if(len(parameter)!=33):
 		raise ValueError('there was a parameter not 0<=param<=1')
-	# if not all(logical_or(binaryParameter==1, binaryParameter==0)):
-	# 	raise ValueError('binary parameter are not all binary')
-
 
 	binaryParameter=[]
-	for i in range(27): # the first 27 are chemical synampses and need to be translated in to exit/inhibit
+	for i in range(27): # the first 27 are chemical synampses and need to be translated in to exit/inhibit synapses
 		if parameter[i]>=0.5:
 			parameter[i] = (parameter[i]-0.5)*0.5
 			binaryParameter.append(0) # excitatory reversal potential
 		else:
 			parameter[i] = (0.5 - parameter[i])*0.5
 			binaryParameter.append(1) # inhibitory reversal potential
-
-	# print(parameter)
-	# print(binaryParameter)
 
 	network['sensory_synapses'].w 		=multiply(parameter[0:3],sensory_chem_table[:,2])*1/ms
 	network['other_synapses'].w 		=multiply(parameter[3:23],other_chem_table[:,2])*1/ms
@@ -232,7 +224,6 @@ def set_parameter(network, original_parameter):
 	network['sensory_synapses'].vReversal  = binaryParameter[0:3]  *(-70*mV)
 	network['other_synapses'].vReversal    = binaryParameter[3:23] *(-70*mV)
 	network['inter_connections'].vReversal = binaryParameter[23:27]*(-70*mV)
-
 
 	#set the tau for chemical synapses globally
 	global tauChemSyn

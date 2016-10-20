@@ -1,3 +1,7 @@
+# Either run python3 evolution.py to start from 0
+# or run 'python3 evolution.py population N' to start with population number N which is loaded from filename populationN.npy
+
+
 import numpy as np
 import timeit
 import threading
@@ -31,6 +35,9 @@ def multiProcessPopulationFitness(pop, NumberOfAssesment=4):
 	'''Asses fitness for all individuals in the network, NumberOfAssesment times'''
 	if(popsize != len(pop)):
 		raise ValueError('lenghth of population doesnt fit popsize')
+	
+	if(numberThreads ==1):
+		return evaluators[0].assesPopulationFitness(pop, sender=None, numberAssesments=NumberOfAssesment)
 
 	
 	lowerBound = 0 
@@ -122,22 +129,30 @@ def do_evolution(population, startGen):
 	for t in range(startGen, n_generations):	
 		next_population = population[0:elite_size] # keep the best individuals straight away
 		for i in range(int((popsize-elite_size)/2)):
-			# select parents 
+			# select parents (biased on their fitness) 
 			ParentA = selectParent(population)
 			ParentB = selectParent(population)
+			# create two children from the 2 parents
 			ChildA, ChildB = crossover(ParentA, ParentB)
+			# mutate the children a little bit
 			ChildA = mutate(ChildA)
 			ChildB = mutate(ChildB)
 
+			# add them to the population list with their fitness yet undefined
 			next_population.append({'fitness': None, 'content':ChildA})
 			next_population.append({'fitness': None, 'content':ChildB})
 			print('{} of {} children born'.format(2*(i+1), (popsize-elite_size)))
 		
+		# asses fitness for all the population
 		next_population = multiProcessPopulationFitness(next_population)
+
 		population=sortPopulation(next_population)
+
 		print('Fitest Individual: {} with fitness: {}'.format(best['content'], best['fitness']))
+
 		np.save('population{}'.format(t), population)
-		# print('finished saving')
+		
+		# we can put a file in the folder and the evolution will stop after the running generation
 		if os.path.exists('stop'):
 			print('stop file was detected')
 			os_remove('stop')
@@ -146,6 +161,8 @@ def do_evolution(population, startGen):
 	return population
 
 def checkAssesment(population):
+	'''function used to check that the multiprocess fitness evaluation works as expected. set noiseTerm to '' to use it'''
+
 	Eval = Phototaxis_evaluator(42)
 	print('starting pop single')
 	startSingle = timeit.default_timer()
@@ -179,5 +196,4 @@ if __name__ == '__main__':
 		startPopulation = list(np.load('{}{}.npy'.format(fileName, startGeneration)))
 		do_evolution(startPopulation, (startGeneration+1))
 
-population = [{'fitness': -float('inf'), 'content':np.random.rand(length_vector)} for i in range(popsize)]
 
