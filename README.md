@@ -21,5 +21,8 @@ This is were the actuall simulation of the network happens. There is no point in
 ### my\_helper.py
 This one contains different versions of the fitness function. assesQuality4() is the current one. 
 
+### populations/.
+In this folder all the generations for one run can be found. Plus plots for 10 runs with the fittest individual of the last generation. 
+
 ## Contact
 Please do not hesitate to contact me with any questions: [chutter@uos.de](mailto:chutter@uos.de)
