@@ -83,7 +83,6 @@ class Phototaxis_evaluator:
 #
 #		spiketrains = dispNet['spikemon_other'].spike_trains()
 #		penalty = assesQuality4(spiketrains, startResponse, endResponse) #startResponse, endResponse)
-#		ion()
 #		figure()
 #		for i,trace in enumerate(sensmon.v):
 #			subplot(2,2,1+i)
@@ -105,7 +104,7 @@ class Phototaxis_evaluator:
 
 
 	def assesBestVisual(self, name, N, saveFileAs=None, j=0):
-		'''call with .npy file name and number of runs. then the fittest individual from that file will be simulated and PLOTTED N times'''
+		'''call with .npy file name and number of runs. then the fittest individual from that file will be simulated and PLOTTED N times, with j you can specify to plot the jth fittest individual'''
 		pop= np.load(name)
 		best = pop[j]
 		for i in range(N):
@@ -147,7 +146,6 @@ class Phototaxis_evaluator:
 
 
 def plotResult(othermon, spiketrains, saveFileAs=None):
-	ion()
 	fig = plt.figure()
 	ax=fig.add_subplot(1,2,1)
 	ax.set_title('DA Motor Neuron')
@@ -185,17 +183,21 @@ def plotResult(othermon, spiketrains, saveFileAs=None):
 	fig.legend([trace, startR, endR, spikesLine], ['membrane voltage', 'start of observed behaviour', 'end of observed behaviour', 'spike'], loc='lower center')
 	if saveFileAs is None:
 		plt.show()
+		print('only show')
 	else:
 		fig.savefig(saveFileAs)
 
 if __name__ == '__main__':
 	plt.close('all')
 	eva = Phototaxis_evaluator()
+	pictureName = None
 	if len(sys.argv)!=1:
 		try:
 			N = int(sys.argv[2])
 			fileName = str(sys.argv[1])
+			if(len(sys.argv)==4):
+				pictureName = str(sys.argv[3])
 		except ValueError:
 			print('could not pars stuff: {}'.format(sys.argv))
 
-		eva.assesBestVisual(fileName, N, 'bla')
+		eva.assesBestVisual(fileName, N, pictureName)

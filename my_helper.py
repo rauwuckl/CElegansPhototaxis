@@ -118,22 +118,3 @@ def assesSpikeTrain(spiketrain, start, end):
 	print('diffStart: {:2.3f}, diffEnd: {:2.3f}, difference: {:2.3f}, variance: {:2.3f}, total: {:2.3f}'.format(diffStart, diffEnd, difference, variance, penalty))
 	return penalty
 
-	
-		
-
-# def plotGraph(G, label=None):
-
-
-# 	val_map = {'A': 1.0,
-# 	                   'D': 0.5714285714285714,
-# 	                              'H': 0.0}
-
-# 	edge_labels=dict([((u,v,),d['weight'])
-# 	                 for u,v,d in G.edges(data=True)])
-
-# 	pos=nx.spring_layout(G)
-# 	nx.draw_networkx_edge_labels(G,pos,edge_labels=edge_labels)
-# 	nx.draw(G,pos, node_size=1500)
-# 	pylab.show()
-
-

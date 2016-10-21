@@ -28,7 +28,6 @@ def read_history(filename):
 def get_fitness_development(fitness):
 	max_fitness = np.amax(fitness, 1)
 	average_fitness = np.array([np.mean(pop[~np.isinf(pop)]) for pop in fitness])
-	print(np.shape(average_fitness))
 	return max_fitness, average_fitness
 
 def get_volume_development(content):
@@ -53,7 +52,7 @@ def get_volume_development(content):
 	return volume, up_to_now_total_covered_volume
 
 def get_average(content):
-	''''''
+	'''calculates how the centroids of each population move around. To give an idea of the explored parameter space'''
 	#means of all individuals for each generation:
 	means = np.mean(content, 1)
 	first_mean = means[0]
@@ -84,10 +83,14 @@ def plot_stuff(content, fitness):
 	plt.plot(dist_to_first, label='distance to initial centroid')
 	plt.plot(dist_to_last, label='distance to last centroid')
 	plt.legend(loc=5)
+	plt.show()
+	print('plotting complete')
 	
 
-def bla():
+if __name__ == '__main__':
+	# ipython3 --matplotlib
+	# %run examine_evolution.py (while beeing in the folder with all the .npy files)
+	plt.close('all')
 	b,c=read_history('population')
 	plot_stuff(b,c)
-	return get_fitness_development(c)
 	
